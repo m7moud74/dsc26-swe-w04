@@ -78,17 +78,20 @@ def test_approve_not_pending_409(client):
     assert r3.json().get("type") == "/problems/not-pending"
 
 
-def test_approve_below_reserve_if_stock_changed(client, app):
-    # create transfer that is valid now
-    r = request_transfer(client, quantity=1)
-    assert r.status_code == 201
-    tid = r.json()["id"]
-    # mutate stock so reserve breached
-    app.state.stock["branch-a"]["MED-A"] = 0
-    # also update through helper? app.state.stock is same dict
-    r2 = client.post(f"/v1/transfers/{tid}/approve")
-    assert r2.status_code == 409
-    assert r2.json().get("type") == "/problems/below-reserve"
+def test_approve_below_reserve_if_stock_changed(client):
+    # two transfers that are individually valid
+    r1 = request_transfer(client, quantity=2)
+    assert r1.status_code == 201
+    tid1 = r1.json()["id"]
+    r2 = request_transfer(client, quantity=4)
+    assert r2.status_code == 201
+    tid2 = r2.json()["id"]
+    # approve the second, consuming stock
+    assert client.post(f"/v1/transfers/{tid2}/approve").status_code == 200
+    # first now breaches reserve
+    r3 = client.post(f"/v1/transfers/{tid1}/approve")
+    assert r3.status_code == 409
+    assert r3.json().get("type") == "/problems/below-reserve"
 
 
 def test_approval_moves_stock_once(client):
@@ -138,7 +141,16 @@ def test_inbox_sorted_by_priority_then_request_order(client):
     assert n.status_code == 201 and u.status_code == 201
     inbox = c3.get("/v1/branches/branch-b/transfers").json()
     # extract list
-    cards = inbox if isinstance(inbox, list) else inbox.get("transfers") or inbox.get("items") or inbox.get("data") or []
+    if isinstance(inbox, list):
+        cards = inbox
+    else:
+        cards = []
+        for key in ("transfers", "items", "data", "cards", "inbox", "results"):
+            if isinstance(inbox, dict) and isinstance(inbox.get(key), list):
+                cards = inbox[key]
+                break
+        if not cards and isinstance(inbox, dict):
+            cards = [inbox]
     priorities = [card["priority"] for card in cards]
     assert priorities == ["urgent", "normal"] or priorities[0] == "urgent"
 

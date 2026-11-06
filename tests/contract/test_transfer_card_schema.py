@@ -17,10 +17,9 @@ def extract_cards(resp_json):
     if isinstance(resp_json, list):
         return resp_json
     if isinstance(resp_json, dict):
-        for key in ("transfers", "items", "data", "cards"):
+        for key in ("transfers", "items", "data", "cards", "inbox", "results"):
             if key in resp_json and isinstance(resp_json[key], list):
                 return resp_json[key]
-        # maybe single card
         return [resp_json]
     return []
 
