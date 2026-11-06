@@ -70,6 +70,7 @@ def test_approve_404_unknown(client):
 def test_approve_not_pending_409(client):
     r = request_transfer(client)
     assert r.status_code == 201
+    assert set(r.json().keys()) == {"id", "fromBranch", "toBranch", "itemCode", "quantity", "priority", "status", "requestedAt"}
     tid = r.json()["id"]
     r2 = client.post(f"/v1/transfers/{tid}/approve")
     assert r2.status_code == 200
